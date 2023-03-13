@@ -19,9 +19,30 @@ local function dot(ax, ay, az, bx, by, bz)
   return (ax * bx) + (ay * by) + (az * bz)
 end
 
+local function cross(ax, ay, az, bx, by, bz)
+  return ay * bz - az * by,
+        az * bx - ax * bz,
+        ax * by - ay * bx
+end
+
+local function sign(n)
+  return n/math.abs(n)
+end
+
+-- stv = signed tetra volume, used in collisions
+-- sign(dot(cross(b-a, c-a), d-a) / 6)
+local function stv(a, b, c, d)
+  local cx, cy, cz = cross(
+    b[1] - a[1], b[2] - a[2], b[3] - a[3], -- b-a
+    c[1] - a[1], c[2] - a[2], c[3] - a[3])
+  return sign(dot(cx, cy, cz, -- c-a
+    d[1] - a[1], d[2] - a[2], d[3] - a[3]) / 6) -- d-a / 6
+end
+
+
 -- nodes: all nodes in the simulation. each node is a point with some mass.
 -- beams: all beams in the simulation. each beam connects two nodes.
--- triangles: triangles between three nodes.
+-- triangles: triangles between three nodes. stores bounciness and friction.
 -- solids: like triangles, but between fixed points in space. cannot move.
 -- nodes and triangles collide, beams do not.
 local nodes, beams, triangles, solids = {}, {}, {}, {}
@@ -46,8 +67,53 @@ local function nbeam(na, nb, stiffness, damping, maxDeform)
   return beam
 end
 
+local function checkIntersection(nnx, nny, nnz, vx, vy, vz, node, tmp, tri)
+  local na, nb, nc = tri[1], tri[2], tri[3]
+  -- Möller-Trumbore triangle intersection
+  -- from https://stackoverflow.com/questions/42740765/intersection-between-line-and-triangle-in-3d
+  -- i don't fully understand this wizardry
+  -- TODO: if this is too slow remove table usage
+  local s1, s2 = stv(node, na, nb, nc), stv(tmp, na, nb, nc)
+  if s1 ~= s2 then
+    local s3, s4, s5 =
+      stv(node, tmp, na, nb),
+      stv(node, tmp, nb, nc),
+      stv(node, tmp, nc, na)
+    if s3 == s4 and s4 == s5 then
+      local cx, cy, cz = cross(nb[1]-na[1], nb[2]-na[2], nb[3]-na[3],
+        nc[1]-na[1], nc[2]-na[2], nc[3]-na[3])
+      local t =
+        dot(na[1]-node[1], na[2]-node[2], na[3]-node[3], cx, cy, cz) /
+        dot(tmp[1]-node[1], tmp[2]-node[2], tmp[3]-node[3], cx, cy, cz)
+      -- this is the point of intersection
+      local ix, iy, iz =
+        node[1] + t * (tmp[1] - node[1]),
+        node[2] + t * (tmp[2] - node[2]),
+        node[3] + t * (tmp[3] - node[3])
+      -- compute normal of triangle surface: don't have to,
+      -- done earlier as (cx, cy, cz)
+      -- may have to invert it, possibly conditionally
+      -- we have to normalize it, though, so do that
+      local nox, noy, noz = normalize(cx, cy, cz)
+      -- now set node position to point of intersection...
+      nnx, nny, nnz = ix, iy, iz
+      -- and reflect velocity along surface, multiplying by
+      -- surface bounciness (range 0 to 1)
+      local bounce = tri[4] or 0.5
+      vx, vy, vz =
+        (vx - 2*(vx * nox)*nox) * bounce,
+        (vy - 2*(vy * noy)*noy) * bounce,
+        (vz - 2*(vz * noz)*noz) * bounce
+      -- now that we've collided and stuff, we're done
+      return nnx, nny, nnz, vx, vy, vz, true
+    end
+  end
+  return nnx, nny, nnz, vx, vy, vz, false
+end
+
 local gravity = -9.8
 local epoch = rawget(os, "epoch")
+local sleep = rawget(os, "sleep")
 local lastTick = epoch("utc")
 local function tick()
   local delta = epoch("utc") - lastTick
@@ -89,6 +155,7 @@ local function tick()
   end
 
   -- move nodes based on Euler integration
+  -- might need to tweak motion integration in the future if it gets unstable
   for i=1, #nodes do
     local node = nodes[i]
     -- position / velocity / force / mass of that node
@@ -103,13 +170,35 @@ local function tick()
     vy = vy + (fy * delta) / mass
     vz = vz + (fz * delta) / mass
 
-    if not node[11] then
-      -- add velocity * deltatime to node position, and store new velocity
+    if not node[11] then -- do not move node if locked in place
+      -- new node position
+      local nnx, nny, nnz = px + vx * delta, py + vy * delta, pz + vz * delta
+      local tmp = {nnx, nny, nnz}
+
+      -- now check collisions, kind of
+      local collided
+      for j=1, #triangles do
+        local tri = triangles[j]
+        -- if the triangle contains this node, skip it
+        if not (tri[1] == node or tri[2] == node or tri[3] == node) then
+          nnx, nny, nnz, vx, vy, vz, collided = checkIntersection(nnx, nny, nnz, vx, vy, vz, node, tmp, tri)
+          if collided then break end
+        end
+      end
+
+      if not collided then
+        for j=1, #solids do
+          nnx, nny, nnz, vx, vy, vz, collided = checkIntersection(nnx, nny, nnz, vx, vy, vz, node, tmp, solids[j])
+          if collided then break end
+        end
+      end
+
+      -- store new position and velocity
       node[1], node[2], node[3],
       node[4], node[5], node[6] =
-        px + vx * delta, py + vy * delta, pz + vz * delta,
-        vx, vy, vz
+        nnx, nny, nnz, vx, vy, vz
     end
+
   end
 end
 
@@ -127,7 +216,7 @@ end
 
 local NMASS = 15
 
-nodes[#nodes+1] = nnode(100,10, 0, NMASS, true) -- 1
+nodes[#nodes+1] = nnode(100,10, 0, NMASS) -- 1
 nodes[#nodes+1] = nnode(90, 30, 0, NMASS) -- 2
 nodes[#nodes+1] = nnode(110,30, 0, NMASS) -- 3
 nodes[#nodes+1] = nnode(70, 50, 0, NMASS) -- 4
@@ -188,10 +277,17 @@ beams[#beams+1] = nbeam(10,14,BSTIFF, BDAMP, 0)
 beams[#beams+1] = nbeam(10,16,BSTIFF, BDAMP, 0)
 beams[#beams+1] = nbeam(11,15,BSTIFF, BDAMP, 0)
 
+-- add a triangle, for testing
+solids[#solids+1] = {
+  {-10, 150, 10},
+  {-10, 150, -10},
+  {316, 150, 0}
+}
 
 local term = rawget(_G, "term")
+local colors = rawget(_G, "colors")
 local paintutils = rawget(_G, "paintutils")
-local a, b, c = pcall(function()
+local a, b, c = xpcall(function()
   term.setGraphicsMode(true)
   while true do
     term.setFrozen(true)
@@ -210,10 +306,10 @@ local a, b, c = pcall(function()
       end
     end
     term.setFrozen(false)
-    os.sleep(0.05)
+    sleep(0.05)
     tick()
   end
-end)
+end, debug.traceback)
 term.setFrozen(false)
 term.setGraphicsMode(false)
 term.setTextColor(colors.white)
