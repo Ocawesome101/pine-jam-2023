@@ -19,6 +19,11 @@ local function dot(ax, ay, az, bx, by, bz)
   return (ax * bx) + (ay * by) + (az * bz)
 end
 
+-- nodes: all nodes in the simulation. each node is a point with some mass.
+-- beams: all beams in the simulation. each beam connects two nodes.
+-- triangles: triangles between three nodes.
+-- solids: like triangles, but between fixed points in space. cannot move.
+-- nodes and triangles collide, beams do not.
 local nodes, beams, triangles, solids = {}, {}, {}, {}
 
 local function nnode(x, y, z, mass, locked)
@@ -42,25 +47,16 @@ local function nbeam(na, nb, stiffness, damping, maxDeform)
 end
 
 local gravity = -9.8
-local lastTick = os.epoch("utc")
+local epoch = rawget(os, "epoch")
+local lastTick = epoch("utc")
 local function tick()
-  delta = os.epoch("utc") - lastTick
+  local delta = epoch("utc") - lastTick
   lastTick = delta + lastTick
   delta = delta / 1000
   -- reset node force to 0
   for i=1, #nodes do
     local node = nodes[i]
     node[7], node[8], node[9] = 0, 0, 0
-  end
-
-  local border, norder = {}, {}
-  for i=1, #beams do border[i] = i end
-
-  local left = #border
-  while left > 1 do
-    local ri = math.random(1, left)
-    left = left - 1
-    border[ri], border[left] = border[left], border[ridx]
   end
 
   -- do beam/spring forces
@@ -114,10 +110,6 @@ local function tick()
         px + vx * delta, py + vy * delta, pz + vz * delta,
         vx, vy, vz
     end
-  end
-
-  -- TODO: collisions
-  for i=1, #solids do
   end
 end
 
@@ -197,6 +189,8 @@ beams[#beams+1] = nbeam(10,16,BSTIFF, BDAMP, 0)
 beams[#beams+1] = nbeam(11,15,BSTIFF, BDAMP, 0)
 
 
+local term = rawget(_G, "term")
+local paintutils = rawget(_G, "paintutils")
 local a, b, c = pcall(function()
   term.setGraphicsMode(true)
   while true do
