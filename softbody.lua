@@ -32,12 +32,12 @@ end
 
 -- stv = signed tetra volume, used in collisions
 -- sign(dot(cross(b-a, c-a), d-a) / 6)
-local function stv(a, b, c, d)
-  local cx, cy, cz = cross(
-    b[1] - a[1], b[2] - a[2], b[3] - a[3], -- b-a
-    c[1] - a[1], c[2] - a[2], c[3] - a[3])
-  return sign(dot(cx, cy, cz, -- c-a
-    d[1] - a[1], d[2] - a[2], d[3] - a[3]) / 6) -- d-a / 6
+local function stv(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz)
+  local Cx, Cy, Cz = cross(
+    bx - ax, by - ay, bz - az, -- b-a
+    cx - ax, cy - ay, cz - az)
+  return sign(dot(Cx, Cy, Cz, -- c-a
+    dx - ax, dy - ay, dz - az) / 6) -- d-a / 6
 end
 
 -- create basic primitives used in the simulation
@@ -83,16 +83,23 @@ local function nsolid(instance, ax, ay, az, bx, by, bz, cx, cy, cz, bounce)
   return #instance.internal.solids
 end
 
+local function avg(t)
+  local n = 0
+  for i=1, #t do n = n + t[i] end
+  return n/#t
+end
+
 -- Takes a PineObject and converts it to an array of Solid triangles.
 -- Moving the PineObject will ***NOT*** move the Solids.
 -- Every polygon is converted to a Solid, so this isn't great for big complex
 -- high-detail models.
 local function loadPineObject(instance, object, bounciness)
+  local x, y, z = object[1], object[2], object[3]
   for i=1, #object[7] do
     local poly = object[7][i]
-    instance:addSolid(poly[1], poly[2], poly[3],
-      poly[4], poly[5], poly[6],
-      poly[7], poly[8], poly[9],
+    instance:addSolid(poly[1]+x, poly[2]+y, poly[3]+z,
+      poly[4]+x, poly[5]+y, poly[6]+z,
+      poly[7]+x, poly[8]+y, poly[9]+z,
       bounciness or 0.5)
   end
 end
@@ -116,7 +123,7 @@ local function loadLuaBeam(instance, frame, path, x, y, z)
   data = data()
 
   local nodeMass, beamStiff, beamDamp = 0, 0, 0
-  local named = {}
+  local named, nodes = {}, {}
   for i=1, #data.nodes do
     local def = data.nodes[i]
     if not def[1] then
@@ -128,6 +135,7 @@ local function loadLuaBeam(instance, frame, path, x, y, z)
       if def.name then name = def.name end
       local id = instance:addNode(def[1] + x, def[2] + y, def[3] + z,
         def.mass or nodeMass)
+      nodes[#nodes+1] = instance.internal.nodes[id]
       if name then named[name] = id end
     end
   end
@@ -145,17 +153,20 @@ local function loadLuaBeam(instance, frame, path, x, y, z)
 
   local model = {}
 
-  local triDraw, triColor, triBounce = true, colors.white, 0.5
+  local triDraw, triColl, triColor, triBounce = true, true, colors.white, 0.5
   local biggestDistance = 0
   local tris = {}
   for i=1, #data.triangles do
     local def = data.triangles[i]
     if not def[1] then
-      triDraw, triColor, triBounce = not not def.draw,
+      triDraw, triColl, triColor, triBounce = not not def.draw,
+        not not def.collide,
         colors[def.color or ""] or triColor, def.bounce or triBounce
     else
-      instance:addTriangle(named[def[1]], named[def[2]], named[def[3]],
-        triBounce)
+      if triColl then
+        instance:addTriangle(named[def[1]], named[def[2]], named[def[3]],
+          triBounce)
+      end
       if triDraw then
         local _in = instance.internal.nodes
         local a, b, c = _in[named[def[1]]],_in[named[def[2]]],_in[named[def[3]]]
@@ -173,7 +184,7 @@ local function loadLuaBeam(instance, frame, path, x, y, z)
           colors[def.color or ""] or triColor,
           " ",
           colors[def.color or ""] or triColor,
-          32768 - (colors[def.color or ""] or triColor)
+          colors.orange
         }
         tris[#model] = {a, b, c}
         biggestDistance = math.max(biggestDistance,
@@ -191,15 +202,13 @@ local function loadLuaBeam(instance, frame, path, x, y, z)
     local dx = self[1] - (x or self[1])
     local dy = self[2] - (y or self[2])
     local dz = self[3] - (z or self[3])
-    self[1] = x or self[1]
-    self[2] = y or self[2]
-    self[3] = z or self[3]
     for _, id in pairs(named) do
       local n = instance.internal.nodes[id]
-      n[1] = n[1] + dx
-      n[2] = n[2] + dy
-      n[3] = n[3] + dz
+      n[1] = n[1] - dx
+      n[2] = n[2] - dy
+      n[3] = n[3] - dz
     end
+    self:updatePolygons()
   end
   function object:setRot(rotX, rotY, rotZ)
     self[4] = rotX or self[4]
@@ -208,16 +217,23 @@ local function loadLuaBeam(instance, frame, path, x, y, z)
   end
   -- eschew object:setModel
   function object:updatePolygons()
-    -- TODO; make this update object position too?
+    -- object position: average position of the nodes
+    local px, py, pz = {}, {}, {}
+    for i=1, #nodes do
+      px[i] = nodes[i][1]
+      py[i] = nodes[i][2]
+      pz[i] = nodes[i][3]
+    end
+    self[1], self[2], self[3] = avg(px), avg(py), avg(pz)
     for i=1, #tris do
       local poly = model[i]
       local a, b, c = tris[i][1], tris[i][2], tris[i][3]
       poly[1], poly[2], poly[3],
       poly[4], poly[5], poly[6],
       poly[7], poly[8], poly[9] =
-        a[1], -a[2], a[3],
-        b[1], -b[2], b[3],
-        c[1], -c[2], c[3]
+        a[1] - self[1], a[2] - self[2], a[3] - self[3],
+        b[1] - self[1], b[2] - self[2], b[3] - self[3],
+        c[1] - self[1], c[2] - self[2], c[3] - self[3]
     end
   end
 
@@ -236,41 +252,55 @@ function lib.newSimulation()
 
   local function checkIntersection(nnx, nny, nnz, vx, vy, vz, node, tmp, tri)
     local na, nb, nc = tri[1], tri[2], tri[3]
+    local xna, yna, zna, xnb, ynb, znb, xnc, ync, znc =
+      na[1], na[2], na[3], nb[1], nb[2], nb[3], nc[1], nc[2], nc[3]
+    local Nx, Ny, Nz, Tx, Ty, Tz = node[1], node[2], node[3],
+      tmp[1], tmp[2], tmp[3]
     -- Möller-Trumbore triangle intersection
     -- from https://stackoverflow.com/questions/42740765/intersection-between-line-and-triangle-in-3d
     -- i don't fully understand this wizardry
     -- TODO: if this is too slow remove table usage
-    local s1, s2 = stv(node, na, nb, nc), stv(tmp, na, nb, nc)
+    local s1, s2 = stv(Nx, Ny, Nz, xna, yna, zna, xnb, ynb, znb, xnc, ync, znc),
+      stv(Tx, Ty, Tz, xna, yna, zna, xnb, ynb, znb, xnc, ync, znc)
     if s1 ~= s2 then
       local s3, s4, s5 =
-        stv(node, tmp, na, nb),
-        stv(node, tmp, nb, nc),
-        stv(node, tmp, nc, na)
+        stv(Nx, Ny, Nz, Tx, Ty, Tz, xna, yna, zna, xnb, ynb, znb),
+        stv(Nx, Ny, Nz, Tx, Ty, Tz, xnb, ynb, znb, xnc, ync, znc),
+        stv(Nx, Ny, Nz, Tx, Ty, Tz, xnc, ync, znc, xna, yna, zna)
       if s3 == s4 and s4 == s5 then
-        local cx, cy, cz = cross(nb[1]-na[1], nb[2]-na[2], nb[3]-na[3],
-          nc[1]-na[1], nc[2]-na[2], nc[3]-na[3])
+        local cx, cy, cz = cross(xnb-xna, ynb-yna, znb-zna,
+          xnc-xna, ync-yna, znc-zna)
         local t =
-          dot(na[1]-node[1], na[2]-node[2], na[3]-node[3], cx, cy, cz) /
-          dot(tmp[1]-node[1], tmp[2]-node[2], tmp[3]-node[3], cx, cy, cz)
+          dot(xna-Nx, yna-Ny, zna-Nz, cx, cy, cz) /
+          dot(Tx-Nx, Ty-Ny, Tz-Nz, cx, cy, cz)
         -- this is the point of intersection
         local ix, iy, iz =
-          node[1] + t * (tmp[1] - node[1]),
-          node[2] + t * (tmp[2] - node[2]),
-          node[3] + t * (tmp[3] - node[3])
+          Nx + t * (Tx - Nx),
+          Ny + t * (Ty - Ny),
+          Nz + t * (Tz - Nz)
         -- compute normal of triangle surface: don't have to,
         -- done earlier as (cx, cy, cz)
         -- may have to invert it, possibly conditionally
         -- we have to normalize it, though, so do that
         local nox, noy, noz = normalize(cx, cy, cz)
+        --[=[
+        if sign(nox) ~= sign(vx) and sign(noy) ~= sign(vy) and
+            sign(noz) ~= sign(vz) then
+          nox, noy, noz = --[[nox, -noy, -noz -]]-nox + sign(nox), -noy + sign(noy), -noz + sign(noy)
+        end]=]
         -- now set node position to point of intersection...
         nnx, nny, nnz = ix, iy, iz
         -- and reflect velocity along surface, multiplying by
         -- surface bounciness (range 0 to 1)
         local bounce = tri[4] or 0.5
+        local len = length(nox, noy, noz)^2
         vx, vy, vz =
-          (vx - 2*(vx * nox)*nox) * bounce,
-          (vy - 2*(vy * noy)*noy) * bounce,
-          (vz - 2*(vz * noz)*noz) * bounce
+          --(vx - (2*(vx * nox)*nox)) * bounce,
+          --(vy - (2*(vy * noy)*noy)) * bounce,
+          --(vz - (2*(vz * noz)*noz)) * bounce
+          vx - (2*vx*nox)/len * nox,
+          vy - (2*vy*noy)/len * noy,
+          vz - (2*vz*noz)/len * noz
         -- now that we've collided and stuff, we're done
         return nnx, nny, nnz, vx, vy, vz, true
       end
@@ -281,10 +311,7 @@ function lib.newSimulation()
   local gravity = -9.8
   local epoch = rawget(os, "epoch")
   local lastTick = epoch("utc")
-  local function tick()
-    local delta = epoch("utc") - lastTick
-    lastTick = delta + lastTick
-    delta = delta / 1000
+  local function tick(delta)
     -- reset node force to 0
     for i=1, #nodes do
       local node = nodes[i]
@@ -329,7 +356,7 @@ function lib.newSimulation()
         node[4], node[5], node[6], node[7], node[8], node[9], node[10]
       -- add gravitational force
       -- force applied by beams has already been calculated, see loop above
-      fy = fy - (gravity * mass)
+      fy = fy + (gravity * mass)
 
       -- add forces to node velocity
       vx = vx + (fx * delta) / mass
@@ -346,19 +373,19 @@ function lib.newSimulation()
 
         -- now check collisions, kind of
         local collided
-        for j=1, #triangles do
-          local tri = triangles[j]
-          -- if the triangle contains this node, skip it
-          if not (tri[1] == node or tri[2] == node or tri[3] == node) then
-            nnx, nny, nnz, vx, vy, vz, collided = checkIntersection(nnx, nny, nnz, vx, vy, vz, node, tmp, tri)
-            if collided then break end
-          end
+        for j=1, #solids do
+          nnx, nny, nnz, vx, vy, vz, collided = checkIntersection(nnx, nny, nnz, vx, vy, vz, node, tmp, solids[j])
+          if collided then break end
         end
 
         if not collided then
-          for j=1, #solids do
-            nnx, nny, nnz, vx, vy, vz, collided = checkIntersection(nnx, nny, nnz, vx, vy, vz, node, tmp, solids[j])
-            if collided then break end
+          for j=1, #triangles do
+            local tri = triangles[j]
+            -- if the triangle contains this node, skip it
+            if not (tri[1] == node or tri[2] == node or tri[3] == node) then
+              nnx, nny, nnz, vx, vy, vz, collided = checkIntersection(nnx, nny, nnz, vx, vy, vz, node, tmp, tri)
+              if collided then break end
+            end
           end
         end
 
@@ -378,7 +405,17 @@ function lib.newSimulation()
     addBeam = nbeam,
     addTriangle = ntri,
     addSolid = nsolid,
-    tick = tick,
+    tick = function()
+      local delta = epoch("utc") - lastTick
+      lastTick = delta + lastTick
+      -- CCPC _Accelerated_ is SO MUCH FASTER
+      local ITER = jit and 250 or 2
+      delta = delta / 1000 / ITER
+      for _=1, ITER do tick(delta) end
+    end,
+    setGravity = function(_,v)
+      gravity = v or -9.8
+    end,
     loadLuaBeam = loadLuaBeam,
     loadPineObject = loadPineObject
   }

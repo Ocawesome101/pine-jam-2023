@@ -11,8 +11,8 @@ local ThreeDFrame = Pine3D.newFrame()
 
 -- initialize our own camera and update the frame camera
 local camera = {
-  x = -1,
-  y = 30,
+  x = -3,
+  y = 5,
   z = 0,
   rotX = 0,
   rotY = 0,
@@ -25,8 +25,8 @@ local simulation = softbody.newSimulation()
 -- world gen stolen from Mountains.lua
 local genOptions = {
         seed = os.clock(),
-        chunkRows = 2,
-        chunkColumns = 2,
+        chunkRows = 1,
+        chunkColumns = 1,
         maxHeight = 32,
         relativeSnowHeight = 0.70,
         relativeWaterHeight = 0.4,
@@ -179,11 +179,13 @@ local objects = generateWorld(ThreeDFrame, genOptions)
 objects[#objects+1]=assert(simulation:loadLuaBeam(ThreeDFrame, "example.lbeam"))
 
 for i=1, #objects - 1 do
-  simulation:loadPineObject(objects[i])
+  simulation:loadPineObject(objects[i], 0.9)
 end
 local cube = objects[#objects]
 cube:setPos(0, 30, 0)
 cube:updatePolygons()
+
+simulation:setGravity(-1)
 
 -- handle all keypresses and store in a lookup table
 -- to check later if a key is being pressed
@@ -292,6 +294,11 @@ local function rendering()
     os.pullEventRaw("rendering")
   end
 end
+
+local start = os.epoch("utc")
+simulation:tick()
+print("simulating one tick took " .. (os.epoch("utc") - start) .. "ms")
+os.sleep(2)
 
 -- start the functions to run in parallel
 parallel.waitForAny(keyInput, gameLoop, rendering)
