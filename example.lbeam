@@ -1,0 +1,80 @@
+-- This is an example LuaBeam file. It defines a simple red cube.
+{
+  nodes = {
+    -- this is how you set node mass
+    -- it affects all following nodes until the next declaration like it
+    -- you can set mass per-node too using the same method, but this is
+    -- not recommended, for consistency.
+    {mass = 15},
+    -- nodes may be named, with either the first field or the last field
+    -- being the name.
+    -- this is essential to reference them later because node IDs are NOT
+    -- constant
+    {1, 0, 1, "fr1"},
+    {-1, 0, 1, "fl1"},
+    {1, 0, -1, "rr1"},
+    {-1, 0, -1, "rl1"},
+    {1, 2, 1, "fr2"},
+    {-1, 2, 1, "fl2"},
+    {1, 2, -1, "rr2"},
+    {-1, 2, -1, "rl2"},
+  },
+  beams = {
+    -- this is how you set beam properties
+    -- similar to node mass
+    -- damping should not be more than about 25% of stiffness
+    -- or things get very weird very quickly
+    {stiffness = 450, damping = 30},
+    {"rl1", "rr1"},
+    {"fl1", "fr1"},
+    {"rl1", "fr1"},
+    {"fl1", "rr1"},
+
+    {"fl1", "rl1"},
+    {"fl2", "rl2"},
+    {"fl1", "rl2"},
+    {"fl2", "rl1"},
+
+    {"fl1", "fl2"},
+    {"fr1", "fr2"},
+    {"fl2", "fr2"},
+    {"fl1", "fr2"},
+
+    {"fr1", "rr1"},
+    {"fr2", "rr2"},
+    {"fr1", "rr2"},
+    {"fr2", "rr1"},
+
+    {"rl1", "rl2"},
+    {"rl2", "rr2"},
+    {"rl1", "rr2"},
+    {"rl2", "rr1"},
+
+    {"fl2", "rl2"},
+    -- {"fr2", "rr2"}, -- duplicate
+    {"fl2", "rr2"},
+    {"fr2", "rl2"},
+  },
+  triangles = {
+    -- for triangles that should be drawn, set draw to true;
+    -- for triangles used only for collision, set draw to false.
+    {draw = true, color = "red", bounce = 0.5},
+    {"rl1", "rr1", "fr1"},
+    {"rl1", "fl1", "fr1"},
+
+    {"rl1", "fl1", "fl2"},
+    {"rl1", "fl2", "rl2"},
+
+    {"fl1", "fr1", "fr2"},
+    {"fl1", "fr2", "fl2"},
+
+    {"fr1", "rr1", "rr2"},
+    {"fr1", "rr2", "fr2"},
+
+    {"rr1", "rl1", "rl2"},
+    {"rr1", "rl2", "rr2"},
+
+    {"fl2", "fr2", "rr2"},
+    {"fl2", "rr2", "rl2"},
+  }
+}
