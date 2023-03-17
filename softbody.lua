@@ -27,6 +27,7 @@ local function cross(ax, ay, az, bx, by, bz)
 end
 
 local function sign(n)
+  if n == 0 then return 0 end
   return n/math.abs(n)
 end
 
@@ -289,18 +290,21 @@ function lib.newSimulation()
           nox, noy, noz = --[[nox, -noy, -noz -]]-nox + sign(nox), -noy + sign(noy), -noz + sign(noy)
         end]=]
         -- now set node position to point of intersection...
-        nnx, nny, nnz = ix, iy, iz
+        nnx, nny, nnz =
+          ix + 0.001 * sign(nox),
+          iy + 0.001 * sign(noy),
+          iz + 0.001 * sign(noz)
         -- and reflect velocity along surface, multiplying by
         -- surface bounciness (range 0 to 1)
         local bounce = tri[4] or 0.5
         local len = length(nox, noy, noz)^2
         vx, vy, vz =
-          --(vx - (2*(vx * nox)*nox)) * bounce,
-          --(vy - (2*(vy * noy)*noy)) * bounce,
-          --(vz - (2*(vz * noz)*noz)) * bounce
-          vx - (2*vx*nox)/len * nox,
-          vy - (2*vy*noy)/len * noy,
-          vz - (2*vz*noz)/len * noz
+          (vx - (2*(vx * nox)*nox)) * (1 + bounce),
+          (vy - (2*(vy * noy)*noy)) * (1 + bounce),
+          (vz - (2*(vz * noz)*noz)) * (1 + bounce)
+          --vx - (2*vx*nox)/len * nox * bounce,
+          --vy - (2*vy*noy)/len * noy * bounce,
+          --vz - (2*vz*noz)/len * noz * bounce
         -- now that we've collided and stuff, we're done
         return nnx, nny, nnz, vx, vy, vz, true
       end
@@ -409,7 +413,7 @@ function lib.newSimulation()
       local delta = epoch("utc") - lastTick
       lastTick = delta + lastTick
       -- CCPC _Accelerated_ is SO MUCH FASTER
-      local ITER = jit and 250 or 2
+      local ITER = jit and 100 or 2
       delta = delta / 1000 / ITER
       for _=1, ITER do tick(delta) end
     end,

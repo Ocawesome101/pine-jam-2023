@@ -26,6 +26,7 @@ local function cross(ax, ay, az, bx, by, bz)
 end
 
 local function sign(n)
+  if n == 0 then return 0 end
   return n/math.abs(n)
 end
 
@@ -96,14 +97,16 @@ local function checkIntersection(nnx, nny, nnz, vx, vy, vz, node, tmp, tri)
       -- we have to normalize it, though, so do that
       local nox, noy, noz = normalize(cx, cy, cz)
       -- now set node position to point of intersection...
-      nnx, nny, nnz = ix, iy, iz
+      nnx, nny, nnz = ix+0.5*sign(nox), iy+0.5*sign(noy), iz+0.5*sign(noz)
+      term.setTextColor(colors.black)
+      print(ix,nox,sign(nox),nnx,nny,nnz)
       -- and reflect velocity along surface, multiplying by
       -- surface bounciness (range 0 to 1)
       local bounce = tri[4] or 0.5
       vx, vy, vz =
-        (vx - 2*(vx * nox)*nox) * bounce,
-        (vy - 2*(vy * noy)*noy) * bounce,
-        (vz - 2*(vz * noz)*noz) * bounce
+        (vx-2*(vx * nox)*nox) * bounce,
+        (vy-2*(vy * noy)*noy) * bounce,
+        (vz-2*(vz * noz)*noz) * bounce
       -- now that we've collided and stuff, we're done
       return nnx, nny, nnz, vx, vy, vz, true
     end
@@ -214,7 +217,7 @@ end
 -- C--D--E--F--G
 -- char left/right = 10px, char up/down = 10px
 
-local NMASS = 15
+local NMASS = 1
 
 nodes[#nodes+1] = nnode(100,10, 0, NMASS) -- 1
 nodes[#nodes+1] = nnode(90, 30, 0, NMASS) -- 2
@@ -233,7 +236,7 @@ nodes[#nodes+1] = nnode(100,90, 0, NMASS) -- E (14)
 nodes[#nodes+1] = nnode(130,90, 0, NMASS) -- F (15)
 nodes[#nodes+1] = nnode(180,90, 0, NMASS) -- G (16)
 
-local BSTIFF, BDAMP = 900, 60
+local BSTIFF, BDAMP = 50, 1
 
 -- main structure
 beams[#beams+1] = nbeam(1, 2, BSTIFF, BDAMP, 0)
@@ -281,13 +284,14 @@ beams[#beams+1] = nbeam(11,15,BSTIFF, BDAMP, 0)
 solids[#solids+1] = {
   {-10, 150, 10},
   {-10, 150, -10},
-  {316, 150, 0}
+  {316, 150, 0},
+  0.9
 }
 
 local term = rawget(_G, "term")
 local colors = rawget(_G, "colors")
 local paintutils = rawget(_G, "paintutils")
-local a, b, c = xpcall(function()
+local a, b, c = pcall(function()
   term.setGraphicsMode(true)
   while true do
     term.setFrozen(true)
