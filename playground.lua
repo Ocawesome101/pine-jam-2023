@@ -128,8 +128,12 @@ local function handleCameraMovement(dt)
 end
 
 -- handle game logic
-local function handleGameLogic()--dt)
-  simulation:tick()
+local epoch = rawget(os, "epoch")
+local lastTick = epoch("utc")
+local function handleGameLogic()
+  local delta = epoch("utc") - lastTick
+  lastTick = delta + lastTick
+  simulation:tick(delta)
   simulation:updateEntities()
 end
 
@@ -144,7 +148,7 @@ local function gameLoop()
     lastTime = currentTime
 
     -- run all functions that need to be run
-    handleGameLogic(dt)
+    handleGameLogic()
     handleCameraMovement(dt)
 
     -- use a fake event to yield the coroutine

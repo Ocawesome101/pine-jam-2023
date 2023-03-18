@@ -350,8 +350,6 @@ function lib.newSimulation()
   end
 
   local gravity = -9.8
-  local epoch = rawget(os, "epoch")
-  local lastTick = epoch("utc")
   local function tick(delta)
     -- reset node force to 0
     for i=1, #nodes do
@@ -453,10 +451,8 @@ function lib.newSimulation()
     addBeam = nbeam,
     addTriangle = ntri,
     addSolid = nsolid,
-    tick = function()
-      local delta = epoch("utc") - lastTick
-      lastTick = delta + lastTick
-      -- CCPC _Accelerated_ is SO MUCH FASTER
+    tick = function(_, delta)
+      -- CCPC Accelerated is SO MUCH FASTER
       local ITER = jit and 150 or 2
       delta = delta / 1000 / ITER
       for _=1, ITER do tick(delta) end
