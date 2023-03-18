@@ -1,6 +1,5 @@
 local Pine3D = require("Pine3D")
 local softbody = require("softbody")
-local noise = require("noise")
 
 -- movement and turn speed of the camera
 local speed = 2 -- units per second
