@@ -79,12 +79,19 @@ local function ntri(instance, na, nb, nc, bounce)
 end
 
 local function nsolid(instance, ax, ay, az, bx, by, bz, cx, cy, cz, bounce)
-  instance.internal.solids[#instance.internal.solids+1] =
+  local solid =
     -- vertices, bounciness...
     {{ax, ay, az}, {bx, by, bz}, {cx, cy, cz}, bounce or 0.5,
     -- ...bounding box
-    {math.min(ax, bx, cx), math.min(ay, by, cy), math.min(az, bz, cz)},
-    {math.max(ax, bx, cx), math.max(ay, by, cy), math.max(az, bz, cz)}}
+    {
+      math.min(ax, bx, cx) - 0.01,
+      math.min(ay, by, cy) - 0.01,
+      math.min(az, bz, cz) - 0.01},
+    {
+      math.max(ax, bx, cx) + 0.01,
+      math.max(ay, by, cy) + 0.01,
+      math.max(az, bz, cz) + 0.01}}
+  instance.internal.solids[#instance.internal.solids+1] = solid
   return #instance.internal.solids
 end
 

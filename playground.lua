@@ -22,198 +22,35 @@ ThreeDFrame:setCamera(camera)
 
 local simulation = softbody.newSimulation()
 
--- world gen stolen from Mountains.lua
-local genOptions = {
-        seed = os.clock(),
-        chunkRows = 1,
-        chunkColumns = 1,
-        maxHeight = 4,--32,
-        relativeSnowHeight = 0.70,
-        relativeWaterHeight = 0.4,
-        noiseSize = 8,--32,
-        terrainSmoothness = 1,
-}
-
-local function generateWorld(ThreeDFrame, genOptions)
-  local seed = genOptions.seed
-  local rows = genOptions.chunkRows
-  local columns = genOptions.chunkColumns
-  local maxHeight = genOptions.maxHeight
-  local relativeSnowHeight = genOptions.relativeSnowHeight
-  local relativeWaterHeight = genOptions.relativeWaterHeight
-  local noiseSize = genOptions.noiseSize
-  local terrainSmoothness = genOptions.terrainSmoothness
-
-  local polyCount = 0
-  local objects = {}
-
-  local colors = colors
-  local sqrt = math.sqrt
-  local max = math.max
-
-  math.randomseed(seed)
-  for chunkX = 0, columns - 1 do
-    for chunkZ = 0, rows - 1 do
-      local mapNoise1 = noise.createNoise(noiseSize, chunkX, chunkZ, seed, terrainSmoothness)
-      local mapNoise2 = noise.createNoise(noiseSize, chunkX + 1, chunkZ, seed, terrainSmoothness)
-      local mapNoise3 = noise.createNoise(noiseSize, chunkX, chunkZ + 1, seed, terrainSmoothness)
-      local mapNoise4 = noise.createNoise(noiseSize, chunkX + 1, chunkZ + 1, seed, terrainSmoothness)
-
-      local mapA = {}
-      local mapB = {}
-      for a = 1, noiseSize do
-        for b = 1, noiseSize do
-          local height1 = mapNoise1[a][b]*maxHeight - 0.5*maxHeight
-          local height2 = 0
-          if (a < noiseSize) then
-            height2 = mapNoise1[a+1][b]*maxHeight - 0.5*maxHeight
-          else
-            height2 = mapNoise2[1][b]*maxHeight - 0.5*maxHeight
-          end
-          local height3 = 0
-          if (b < noiseSize) then
-            height3 = mapNoise1[a][b+1]*maxHeight - 0.5*maxHeight
-          else
-            height3 = mapNoise3[a][1]*maxHeight - 0.5*maxHeight
-          end
-          local height4 = 0
-          if (a == noiseSize and b == noiseSize) then
-            height4 = mapNoise4[1][1]*maxHeight - 0.5*maxHeight
-          elseif (a == noiseSize) then
-            height4 = mapNoise2[1][b+1]*maxHeight - 0.5*maxHeight
-          elseif (b == noiseSize) then
-            height4 = mapNoise3[a+1][1]*maxHeight - 0.5*maxHeight
-          else
-            height4 = mapNoise1[a+1][b+1]*maxHeight - 0.5*maxHeight
-          end
-
-          local c1 = colors.lime
-          local c2 = colors.green
-
-          local snowHeight = relativeSnowHeight * maxHeight - 0.5*maxHeight
-          local waterHeight = relativeWaterHeight * maxHeight - 0.5*maxHeight
-
-          if (height1 >= snowHeight or height2 >= snowHeight or height3 >= snowHeight) then
-            c1 = colors.white
-          end
-          if (height2 >= snowHeight or height3 >= snowHeight or height4 >= snowHeight) then
-            c2 = colors.lightGray
-          end
-          if (height1 <= waterHeight or height2 <= waterHeight or height3 <= waterHeight or height4 <= waterHeight) then
-            height1 = max(height1, waterHeight)
-            height2 = max(height2, waterHeight)
-            height3 = max(height3, waterHeight)
-            height4 = max(height4, waterHeight)
-            if (height1 <= waterHeight and height2 <= waterHeight and height3 <= waterHeight) then
-              c1 = colors.blue
-            end
-            if (height2 <= waterHeight and height3 <= waterHeight and height4 <= waterHeight) then
-              c2 = colors.blue
-            end
-          end
-
-          local map = mapA
-          if b + a > noiseSize+1 then
-            map = mapB
-          end
-
-          local xOffset = 0
-          local zOffset = 0
-          if map == mapA then
-            xOffset = -(1/2 + 1) + -noiseSize*0.5
-            zOffset = -sqrt(0.75) + -noiseSize * sqrt(0.75) / 3
-          else
-            xOffset = -(1/2 + 1) + -noiseSize
-            zOffset = -sqrt(0.75) + -noiseSize * sqrt(0.75) * 2 / 3
-          end
-
-          map[#map+1] = {
-            x1 = xOffset + b/2 + a+1, y1 = height2, z1 = zOffset + b*sqrt(0.75),
-            x2 = xOffset + b/2 + a, y2 = height1, z2 = zOffset + b*sqrt(0.75),
-            x3 = xOffset + b/2 + a+0.5, y3 = height3, z3 = zOffset + (b+1)*sqrt(0.75),
-            c = c1,
-          }
-
-          if b + a == noiseSize+1 then
-            map = mapB
-
-            xOffset = -(1/2 + 1) + -noiseSize
-            zOffset = -sqrt(0.75) + -noiseSize * sqrt(0.75) * 2 / 3
-          end
-
-          map[#map+1] = {
-            x1 = xOffset + b/2 + a+0.5, y1 = height3, z1 = zOffset + (b+1)*sqrt(0.75),
-            x2 = xOffset + b/2 + a+1.5, y2 = height4, z2 = zOffset + (b+1)*sqrt(0.75),
-            x3 = xOffset + b/2 + a+1, y3 = height2, z3 = zOffset + b*sqrt(0.75),
-            c = c2,
-          }
-
-          polyCount = polyCount + 2
-        end
-      end
-
-      objects[#objects+1] = ThreeDFrame:newObject(
-        mapA, -- model
-        chunkX * noiseSize + chunkZ * noiseSize*0.5, -- X
-        0, -- Y
-        chunkZ * noiseSize * sqrt(0.75) -- Z
-      )
-
-      objects[#objects+1] = ThreeDFrame:newObject(
-        mapB, -- model
-        chunkX * noiseSize + chunkZ * noiseSize*0.5 + noiseSize*0.5, -- X
-        0, -- Y
-        chunkZ * noiseSize * sqrt(0.75) + noiseSize * sqrt(0.75)/3 -- Z
-      )
-    end
-  end
-
-  print("polyCount: " .. polyCount)
-  sleep(0.5)
-
-  return objects
-end
-
 -- define the objects to be rendered
 local objects = {}-- generateWorld(ThreeDFrame, genOptions)
--- (-1,1)-------(1,1)
+-- (-i,j)-------(i,j)
 --    |       ___/  |
 --    |   ___/      |
 --    |  /          |
--- (-1,-1)-----(1,-1)
-local function newChunk(i, j)
-  return {{
-    x1 = 15+i,
-    y1 = 0,
-    z1 = 15+j,
-    x2 = 15+i,
-    y2 = 0,
-    z2 = 15-j,
-    x3 = 15-i,
-    y3 = 0,
-    z3 = 15-j,
-    c = 2^math.random(0,14)--colors.lightGray
-  },
-  {
-    x1 = 15-i,
-    y1 = 0,
-    z1 = 15-j,
-    x2 = 15-i,
-    y2 = 0,
-    z2 = 15+i,
-    x3 = 15+j,
-    y3 = 0,
-    z3 = 15+j,
-    c = colors.gray
-  }}
+-- (-i,-j)-----(i,-j)
+local function newChunk(d, i, j)
+  return {
+    -- floor
+    {x1=d+i,y1=0,z1=d+j,x2=d+i,y2=0,z2=d-j,x3=d-i,y3=0,z3=d-j,c=colors.lightGray},
+    {x1=d-i,y1=0,z1=d-j,x2=d-i,y2=0,z2=d+j,x3=d+i,y3=0,z3=d+j,c=colors.gray},
+    -- red wall
+    {x1=d+i,y1=0,z1=d-j,x2=d+i,y2=5,z2=d+j,x3=d+i,y3=5,z3=d-j,c=colors.lightGray,},
+    {x3=d+i,y3=5,z3=d+j,x2=d+i,y2=0,z2=d+j,x1=d+i,y1=0,z1=d-j,c=colors.red,},
+    -- green wall
+    {x1=d-i,y1=0,z1=d-j,x2=d-i,y2=5,z2=d-j,x3=d-i,y3=5,z3=d+j,c=colors.lightGray,},
+    {x1=d-i,y1=0,z1=d+j,x2=d-i,y2=0,z2=d-j,x3=d-i,y3=5,z3=d+j,c=colors.green,},
+    -- blue wall
+    {x1=d-i,y1=0,z1=d+j,x2=d-i,y2=5,z2=d+j,x3=d+i,y3=5,z3=d+j,c=colors.lightGray,},
+    {x1=d+i,y1=0,z1=d+j,x2=d-i,y2=0,z2=d+j,x3=d+i,y3=5,z3=d+j,c=colors.blue,},
+    -- orange wall
+    {x1=d-i,y1=0,z1=d-j,x2=d+i,y2=5,z2=d-j,x3=d-i,y3=5,z3=d-j,c=colors.lightGray,},
+    {x1=d-i,y1=0,z1=d-j,x2=d+i,y2=0,z2=d-j,x3=d+i,y3=5,z3=d-j,c=colors.orange,},
+  }
 end
-for i=-5, 5 do
-  for j=-5, 5 do
-    objects[#objects+1]=ThreeDFrame:newObject(newChunk(i, j), -15, 0, -15)
-  end
-end
-objects[#objects+1]=assert(simulation:loadLuaBeam(ThreeDFrame, "example.lbeam", 0.1, 23, 0.1))
-objects[#objects+1]=assert(simulation:loadLuaBeam(ThreeDFrame, "example.lbeam", 0, 20, 0))
+objects[#objects+1]=ThreeDFrame:newObject(newChunk(30, 10, 10), -30, 0, -30)
+objects[#objects+1]=assert(simulation:loadLuaBeam(ThreeDFrame, "cube.lbeam", 0.1, 23, 0.1))
+objects[#objects+1]=assert(simulation:loadLuaBeam(ThreeDFrame, "cube.lbeam", 0, 20, 0))
 
 for i=1, #objects - 2 do
   simulation:loadPineObject(objects[i], 0.2)
