@@ -2,7 +2,7 @@
 
 A simple soft-body physics engine designed for [ComputerCraft](https://tweaked.cc) and [Pine3D](https://pine3d.cc).  I wrote it in a week and a half for [PineJam 2023](https://jam.pine3d.cc/jam/2023).
 
-Run `playground.lua` from this repository to launch a simple demo.
+Run `playground.lua` from this repository to launch a simple demo. The `tests` folder contains some initial experiments.
 
 ### How does it work?
 
