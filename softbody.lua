@@ -80,7 +80,11 @@ end
 
 local function nsolid(instance, ax, ay, az, bx, by, bz, cx, cy, cz, bounce)
   instance.internal.solids[#instance.internal.solids+1] =
-    {{ax, ay, az}, {bx, by, bz}, {cx, cy, cz},bounce or 0.5}
+    -- vertices, bounciness...
+    {{ax, ay, az}, {bx, by, bz}, {cx, cy, cz}, bounce or 0.5,
+    -- ...bounding box
+    {math.min(ax, bx, cx), math.min(ay, by, cy), math.min(az, bz, cz)},
+    {math.max(ax, bx, cx), math.max(ay, by, cy), math.max(az, bz, cz)}}
   return #instance.internal.solids
 end
 
@@ -257,6 +261,17 @@ function lib.newSimulation()
       na[1], na[2], na[3], nb[1], nb[2], nb[3], nc[1], nc[2], nc[3]
     local Nx, Ny, Nz, Tx, Ty, Tz = node[1], node[2], node[3],
       tmp[1], tmp[2], tmp[3]
+    local bba, bbb = tri[5], tri[6]
+    -- check the triangle's bounding box first - much faster
+    if
+        (Nx < bba[1] or Nx > bbb[1]) and
+        (Ny < bba[2] or Ny > bbb[2]) and
+        (Nz < bba[3] or Nz > bbb[3]) and
+        (Tx < bba[1] or Tx > bbb[1]) and
+        (Ty < bba[2] or Ty > bbb[2]) and
+        (Tz < bba[3] or Tz > bbb[3]) then
+      return nnx, nny, nnz, vx, vy, vz, false
+    end
     -- Möller-Trumbore triangle intersection
     -- from https://stackoverflow.com/questions/42740765/intersection-between-line-and-triangle-in-3d
     -- i don't fully understand this wizardry
@@ -299,12 +314,12 @@ function lib.newSimulation()
         local bounce = tri[4] or 0.5
         local len = length(nox, noy, noz)^2
         vx, vy, vz =
-          (vx - (2*(vx * nox)*nox)) * (1 + bounce),
-          (vy - (2*(vy * noy)*noy)) * (1 + bounce),
-          (vz - (2*(vz * noz)*noz)) * (1 + bounce)
-          --vx - (2*vx*nox)/len * nox * bounce,
-          --vy - (2*vy*noy)/len * noy * bounce,
-          --vz - (2*vz*noz)/len * noz * bounce
+          --(vx - (2*(vx * nox)*nox)) * (1 + bounce),
+          --(vy - (2*(vy * noy)*noy)) * (1 + bounce),
+          --(vz - (2*(vz * noz)*noz)) * (1 + bounce)
+          (vx - (2*vx*nox)/len * nox) * bounce,
+          (vy - (2*vy*noy)/len * noy) * bounce,
+          (vz - (2*vz*noz)/len * noz) * bounce
         -- now that we've collided and stuff, we're done
         return nnx, nny, nnz, vx, vy, vz, true
       end
@@ -413,7 +428,7 @@ function lib.newSimulation()
       local delta = epoch("utc") - lastTick
       lastTick = delta + lastTick
       -- CCPC _Accelerated_ is SO MUCH FASTER
-      local ITER = jit and 100 or 2
+      local ITER = jit and 10 or 2
       delta = delta / 1000 / ITER
       for _=1, ITER do tick(delta) end
     end,
