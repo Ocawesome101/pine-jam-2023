@@ -242,6 +242,8 @@ local function loadLuaBeam(instance, frame, path, x, y, z)
     end
   end
 
+  instance.internal.entities[#instance.internal.entities+1] = object
+
   return object
 end
 
@@ -252,8 +254,10 @@ function lib.newSimulation()
   -- beams: all beams in the simulation. each beam connects two nodes.
   -- triangles: triangles between three nodes. stores bounciness and friction.
   -- solids: like triangles, but between fixed points in space. cannot move.
+  --         grouped into chunks.
   -- nodes and triangles collide, beams do not.
-  local nodes, beams, triangles, solids = {}, {}, {}, {}
+  -- entities: all LuaBeam -> PineObject models
+  local nodes, beams, triangles, solids, entities = {}, {}, {}, {}, {}
 
   local function checkIntersection(nnx, nny, nnz, vx, vy, vz, node, tmp, tri)
     local na, nb, nc = tri[1], tri[2], tri[3]
@@ -262,8 +266,8 @@ function lib.newSimulation()
     local Nx, Ny, Nz, Tx, Ty, Tz = node[1], node[2], node[3],
       tmp[1], tmp[2], tmp[3]
     local bba, bbb = tri[5], tri[6]
-    -- check the triangle's bounding box first - much faster
-    if
+    -- check the triangle's bounding box first - much faster on non-luajit
+    if bba and (not jit) and
         (Nx < bba[1] or Nx > bbb[1]) and
         (Ny < bba[2] or Ny > bbb[2]) and
         (Nz < bba[3] or Nz > bbb[3]) and
@@ -381,9 +385,9 @@ function lib.newSimulation()
       vx = vx + (fx * delta) / mass
       vy = vy + (fy * delta) / mass
       vz = vz + (fz * delta) / mass
-      vx = math.max(-10, math.min(vx, 10))
-      vy = math.max(-10, math.min(vy, 10))
-      vz = math.max(-10, math.min(vz, 10))
+      --vx = math.max(-10, math.min(vx, 10))
+      --vy = math.max(-10, math.min(vy, 10))
+      --vz = math.max(-10, math.min(vz, 10))
 
       if not node[11] then -- do not move node if locked in place
         -- new node position
@@ -416,9 +420,16 @@ function lib.newSimulation()
     end
   end
 
+  local function updateEntities()
+    for i=1, #entities do
+      entities[i]:updatePolygons()
+    end
+  end
+
   return {
     internal = {
       nodes = nodes, beams = beams, triangles = triangles, solids = solids,
+      entities = entities
     },
     addNode = nnode,
     addBeam = nbeam,
@@ -428,7 +439,7 @@ function lib.newSimulation()
       local delta = epoch("utc") - lastTick
       lastTick = delta + lastTick
       -- CCPC _Accelerated_ is SO MUCH FASTER
-      local ITER = jit and 10 or 2
+      local ITER = jit and 150 or 2
       delta = delta / 1000 / ITER
       for _=1, ITER do tick(delta) end
     end,
@@ -436,6 +447,7 @@ function lib.newSimulation()
       gravity = v or -9.8
     end,
     loadLuaBeam = loadLuaBeam,
+    updateEntities = updateEntities,
     loadPineObject = loadPineObject
   }
 end

@@ -27,11 +27,11 @@ local genOptions = {
         seed = os.clock(),
         chunkRows = 1,
         chunkColumns = 1,
-        maxHeight = 32,
+        maxHeight = 4,--32,
         relativeSnowHeight = 0.70,
         relativeWaterHeight = 0.4,
-        noiseSize = 32,
-        terrainSmoothness = 3,
+        noiseSize = 8,--32,
+        terrainSmoothness = 1,
 }
 
 local function generateWorld(ThreeDFrame, genOptions)
@@ -177,15 +177,16 @@ end
 -- define the objects to be rendered
 local objects = generateWorld(ThreeDFrame, genOptions)
 objects[#objects+1]=assert(simulation:loadLuaBeam(ThreeDFrame, "example.lbeam"))
+objects[#objects+1]=assert(simulation:loadLuaBeam(ThreeDFrame, "example.lbeam"))
 
-for i=1, #objects - 1 do
+for i=1, #objects - 2 do
   simulation:loadPineObject(objects[i], 0.9)
 end
-local cube = objects[#objects]
-cube:setPos(0, 30, 0)
-cube:updatePolygons()
+local cubeA, cubeB = objects[#objects], objects[#objects-1]
+cubeA:setPos(0.10, 23, 0.1)
+cubeB:setPos(0, 20, 0)
 
-simulation:setGravity(-1)
+simulation:setGravity(-2)
 
 -- handle all keypresses and store in a lookup table
 -- to check later if a key is being pressed
@@ -259,7 +260,7 @@ end
 -- handle game logic
 local function handleGameLogic()--dt)
   simulation:tick()
-  cube:updatePolygons()
+  simulation:updateEntities()
 end
 
 -- handle the game logic and camera movement in steps
@@ -294,11 +295,6 @@ local function rendering()
     os.pullEventRaw("rendering")
   end
 end
-
-local start = os.epoch("utc")
-simulation:tick()
-print("simulating one tick took " .. (os.epoch("utc") - start) .. "ms")
-os.sleep(2)
 
 -- start the functions to run in parallel
 parallel.waitForAny(keyInput, gameLoop, rendering)

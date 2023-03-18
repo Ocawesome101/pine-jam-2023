@@ -57,7 +57,7 @@
   triangles = {
     -- for triangles that should be drawn, set draw to true;
     -- for triangles used only for collision, set draw to false.
-    {draw = true, collide = false, color = "red", bounce = 0.5},
+    {draw = true, collide = true, color = "red", bounce = 0.5},
     {"rl1", "rr1", "fr1"},
     {"rl1", "fl1", "fl2"},
     {"fl1", "fr1", "fr2"},
