@@ -175,18 +175,51 @@ local function generateWorld(ThreeDFrame, genOptions)
 end
 
 -- define the objects to be rendered
-local objects = generateWorld(ThreeDFrame, genOptions)
-objects[#objects+1]=assert(simulation:loadLuaBeam(ThreeDFrame, "example.lbeam"))
-objects[#objects+1]=assert(simulation:loadLuaBeam(ThreeDFrame, "example.lbeam"))
+local objects = {}-- generateWorld(ThreeDFrame, genOptions)
+-- (-1,1)-------(1,1)
+--    |       ___/  |
+--    |   ___/      |
+--    |  /          |
+-- (-1,-1)-----(1,-1)
+local function newChunk(i, j)
+  return {{
+    x1 = 15+i,
+    y1 = 0,
+    z1 = 15+j,
+    x2 = 15+i,
+    y2 = 0,
+    z2 = 15-j,
+    x3 = 15-i,
+    y3 = 0,
+    z3 = 15-j,
+    c = 2^math.random(0,14)--colors.lightGray
+  },
+  {
+    x1 = 15-i,
+    y1 = 0,
+    z1 = 15-j,
+    x2 = 15-i,
+    y2 = 0,
+    z2 = 15+i,
+    x3 = 15+j,
+    y3 = 0,
+    z3 = 15+j,
+    c = colors.gray
+  }}
+end
+for i=-5, 5 do
+  for j=-5, 5 do
+    objects[#objects+1]=ThreeDFrame:newObject(newChunk(i, j), -15, 0, -15)
+  end
+end
+objects[#objects+1]=assert(simulation:loadLuaBeam(ThreeDFrame, "example.lbeam", 0.1, 23, 0.1))
+objects[#objects+1]=assert(simulation:loadLuaBeam(ThreeDFrame, "example.lbeam", 0, 20, 0))
 
 for i=1, #objects - 2 do
-  simulation:loadPineObject(objects[i], 0.9)
+  simulation:loadPineObject(objects[i], 0.2)
 end
-local cubeA, cubeB = objects[#objects], objects[#objects-1]
-cubeA:setPos(0.10, 23, 0.1)
-cubeB:setPos(0, 20, 0)
 
-simulation:setGravity(-2)
+--simulation:setGravity(-0.1)
 
 -- handle all keypresses and store in a lookup table
 -- to check later if a key is being pressed

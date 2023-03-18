@@ -317,13 +317,24 @@ function lib.newSimulation()
         -- surface bounciness (range 0 to 1)
         local bounce = tri[4] or 0.5
         local len = length(nox, noy, noz)^2
-        vx, vy, vz =
+        local vdx, vdy, vdz =
+          ((2*vx*nox)/len * nox) * bounce,
+          ((2*vy*noy)/len * noy) * bounce,
+          ((2*vz*noz)/len * noz) * bounce
+        -- if the triangle is between nodes, do forces on that too
+        if #na > 6 then
+          na[4], na[5], na[6], nb[4], nb[5], nb[6], nc[4], nc[5], nc[6] =
+            na[4] + vdx/2, na[5] + vdy/2, na[6] + vdz/2,
+            nb[4] + vdx/2, nb[5] + vdy/2, nb[6] + vdz/2,
+            nc[4] + vdx/2, nc[5] + vdy/2, nc[6] + vdz/2
+        end
+        vx, vy, vz = vx - vdx, vy - vdy, vz - vdz
           --(vx - (2*(vx * nox)*nox)) * (1 + bounce),
           --(vy - (2*(vy * noy)*noy)) * (1 + bounce),
           --(vz - (2*(vz * noz)*noz)) * (1 + bounce)
-          (vx - (2*vx*nox)/len * nox) * bounce,
-          (vy - (2*vy*noy)/len * noy) * bounce,
-          (vz - (2*vz*noz)/len * noz) * bounce
+          --(vx - (2*vx*nox)/len * nox) * bounce,
+          --(vy - (2*vy*noy)/len * noy) * bounce,
+          --(vz - (2*vz*noz)/len * noz) * bounce
         -- now that we've collided and stuff, we're done
         return nnx, nny, nnz, vx, vy, vz, true
       end
