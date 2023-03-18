@@ -49,8 +49,8 @@ local function newChunk(d, i, j)
   }
 end
 objects[#objects+1]=ThreeDFrame:newObject(newChunk(30, 10, 10), -30, 0, -30)
-objects[#objects+1]=assert(simulation:loadLuaBeam(ThreeDFrame, "cube.lbeam", 0.1, 23, 0.1))
-objects[#objects+1]=assert(simulation:loadLuaBeam(ThreeDFrame, "cube.lbeam", 0, 20, 0))
+objects[#objects+1]=assert(simulation:loadLuaBeamAsPineObject(ThreeDFrame, "cube.lbeam", 0.1, 23, 0.1))
+objects[#objects+1]=assert(simulation:loadLuaBeamAsPineObject(ThreeDFrame, "cube.lbeam", 0, 20, 0))
 
 for i=1, #objects - 2 do
   simulation:loadPineObject(objects[i], 0.2)

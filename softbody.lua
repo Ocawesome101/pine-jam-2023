@@ -116,9 +116,7 @@ local function loadPineObject(instance, object, bounciness)
   end
 end
 
--- Load a LuaBeam structure into an instance.  Returns a PineObject.
--- Yes, LuaBeam might be a rip-off of BeamNG's JBeam format.
-local function loadLuaBeam(instance, frame, path, x, y, z)
+local function loadLuaBeam(instance, path, x, y, z, pine)
   x, y, z = x or 0, y or 0, z or 0
   local handle, err = io.open(path, "r")
   if not handle then
@@ -192,11 +190,11 @@ local function loadLuaBeam(instance, frame, path, x, y, z)
           c[1],
           c[2],
           c[3],
-          false,
-          colors[def.color or ""] or triColor,
-          " ",
-          colors[def.color or ""] or triColor,
-          colors.orange
+          pine and false,
+          pine and colors[def.color or ""] or triColor,
+          pine and " ",
+          pine and colors[def.color or ""] or triColor,
+          pine and colors.orange
         }
         tris[#model] = {a, b, c}
         biggestDistance = math.max(biggestDistance,
@@ -206,6 +204,32 @@ local function loadLuaBeam(instance, frame, path, x, y, z)
       end
     end
   end
+
+  if not pine then
+    local entity = {
+      x = 0, y = 0, z = 0,
+      updatePolygons = function(self)
+        for i=1, #tris do
+          local poly = model[i]
+          local a, b, c = tris[i][1], tris[i][2], tris[i][3]
+          poly[1], poly[2], poly[3],
+          poly[4], poly[5], poly[6],
+          poly[7], poly[8], poly[9] =
+            a[1] - self[1], a[2] - self[2], a[3] - self[3],
+            b[1] - self[1], b[2] - self[2], b[3] - self[3],
+            c[1] - self[1], c[2] - self[2], c[3] - self[3]
+        end
+      end}
+    instance.internal.entities[#instance.internal.entities+1] = entity
+  end
+
+  return model, tris, biggestDistance, named, nodes
+end
+
+-- Load a LuaBeam structure into an instance.  Returns a PineObject.
+-- Yes, LuaBeam might be a rip-off of BeamNG's JBeam format.
+local function loadLuaBeamAsPineObject(instance, frame, path, x, y, z)
+  local model, tris, biggestDistance, named, nodes = instance:loadLuaBeam(path, x, y, z, true)
 
   local object = {
     0, 0, 0, 0, 0, 0, model, biggestDistance, frame = frame
@@ -461,6 +485,7 @@ function lib.newSimulation()
       gravity = v or -9.8
     end,
     loadLuaBeam = loadLuaBeam,
+    loadLuaBeamAsPineObject = loadLuaBeamAsPineObject,
     updateEntities = updateEntities,
     loadPineObject = loadPineObject
   }
