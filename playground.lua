@@ -47,13 +47,11 @@ local function newChunk(d, i, j)
     {x1=d-i,y1=0,z1=d-j,x2=d+i,y2=0,z2=d-j,x3=d+i,y3=5,z3=d-j,c=colors.orange,},
   }
 end
-objects[#objects+1]=ThreeDFrame:newObject(newChunk(30, 10, 10), -30, 0, -30)
+local arena = {ThreeDFrame:newObject(newChunk(30, 10, 10), -30, 0, -30)}
 objects[#objects+1]=assert(simulation:loadLuaBeamAsPineObject(ThreeDFrame, "cube.lbeam", 0.1, 23, 0.1))
 objects[#objects+1]=assert(simulation:loadLuaBeamAsPineObject(ThreeDFrame, "cube.lbeam", 0, 20, 0))
 
-for i=1, #objects - 2 do
-  simulation:loadPineObject(objects[i], 0.2)
-end
+simulation:loadPineObject(arena[1], 0.2)
 
 --simulation:setGravity(-0.1)
 
@@ -160,6 +158,7 @@ end
 local function rendering()
   while true do
     -- load all objects onto the buffer and draw the buffer
+    ThreeDFrame:drawObjects(arena)
     ThreeDFrame:drawObjects(objects)
     ThreeDFrame:drawBuffer()
 
