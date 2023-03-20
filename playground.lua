@@ -48,12 +48,18 @@ local function newChunk(d, i, j)
   }
 end
 local arena = {ThreeDFrame:newObject(newChunk(30, 10, 10), -30, 0, -30)}
-objects[#objects+1]=assert(simulation:loadLuaBeamAsPineObject(ThreeDFrame, "cube.lbeam", 0.1, 23, 0.1))
-objects[#objects+1]=assert(simulation:loadLuaBeamAsPineObject(ThreeDFrame, "cube.lbeam", 0, 20, 0))
+
+local function addPhysicsObject(x, y, z)
+  objects[#objects+1]=assert(simulation:loadLuaBeamAsPineObject(ThreeDFrame, "cube.lbeam", x, y, z))
+end
+
+addPhysicsObject(0, 10, 0)
 
 simulation:loadPineObject(arena[1], 0.2)
 
 --simulation:setGravity(-0.1)
+
+local paused, help = false, true
 
 -- handle all keypresses and store in a lookup table
 -- to check later if a key is being pressed
@@ -67,6 +73,18 @@ local function keyInput()
       keysDown[key] = true
     elseif event == "key_up" then -- if a key is released, reset its value
       keysDown[key] = nil
+    elseif event == "char" then
+      if key == "p" then paused = not paused end
+      if key == "q" then break end
+      if key == "n" then addPhysicsObject(camera.x, camera.y, camera.z) end
+      if key == "j" then simulation:setSpeed(simulation:getSpeed() + 1) end
+      if key == "l" then simulation:setSpeed(simulation:getSpeed() - 1) end
+      if key == "g" then simulation:setGravity(-simulation:getGravity()) end
+      if key == "i" then simulation:setGravity(simulation:getGravity() + 1) end
+      if key == "k" then simulation:setGravity(simulation:getGravity() - 1) end
+      if key == "r" then simulation:setGravity() end
+      if key == "z" then simulation:setGravity(0) end
+      if key == "h" then help = not help end
     end
   end
 end
@@ -130,8 +148,10 @@ local lastTick = epoch("utc")
 local function handleGameLogic()
   local delta = epoch("utc") - lastTick
   lastTick = delta + lastTick
-  simulation:tick(delta)
-  simulation:updateEntities()
+  if not paused then
+    simulation:tick(delta)
+    simulation:updateEntities()
+  end
 end
 
 -- handle the game logic and camera movement in steps
@@ -154,13 +174,58 @@ local function gameLoop()
   end
 end
 
+local function at(x,y)
+  term.setCursorPos(x,y)
+  return term
+end
+
+local helpText = {
+  "Soft-Body Physics Playground",
+  "Written by Ocawesome101 for PineJam 2023",
+  "Keybinds:",
+  "P - pause/unpause simulation",
+  "Q - quit",
+  "W/A/S/D - move around",
+  "Space/Shift - move up/down",
+  "Arrow Keys - look around",
+  "N - create a new object at the camera position",
+  "G - invert gravity",
+  "R - reset gravity",
+  "Z = zero-gravity",
+  "J/L - decrease/increase simulation speed",
+  "I/K - increase/decrease gravity",
+  "H - toggle showing this help screen",
+}
+
+local function drawOverlay(minimal)
+  term.setBackgroundColor(colors.gray)
+  term.setTextColor(colors.orange)
+  if minimal or not help then
+    local _, h = term.getSize()
+    at(1,1).write("P = pause, N = new object")
+    at(1,h).write("speed = 1/"..simulation:getSpeed()..", gravity = "..simulation:getGravity())
+    return
+  end
+  for i=1, #helpText do
+    at(2,i+1).write(helpText[i])
+  end
+end
+
+local win = window.create(term.current(), 1, 1, term.getSize())
+
 -- render the objects
 local function rendering()
   while true do
     -- load all objects onto the buffer and draw the buffer
     ThreeDFrame:drawObjects(arena)
     ThreeDFrame:drawObjects(objects)
+
+    local c = term.redirect(win)
     ThreeDFrame:drawBuffer()
+    drawOverlay(not paused)
+    term.redirect(c)
+    win.setVisible(true)
+    win.setVisible(false)
 
     -- use a fake event to yield the coroutine
     os.queueEvent("rendering")
@@ -170,3 +235,40 @@ end
 
 -- start the functions to run in parallel
 parallel.waitForAny(keyInput, gameLoop, rendering)
+
+term.clear()
+local wb = window.create(term.current(), 1, 1, 31, 11)
+local w = window.create(wb, 1, 1, 30, 10)
+wb.setBackgroundColor(colors.gray)
+wb.clear()
+wb.setBackgroundColor(colors.black)
+wb.setCursorPos(31,1)
+wb.write(" ")
+wb.setCursorPos(1,11)
+wb.write(" ")
+w.setBackgroundColor(colors.purple)
+w.clear()
+w.setCursorPos(5,1)
+w.setTextColor(colors.orange)
+w.write("Thank you for playing!")
+local text = [[
+ This soft-body physics play-
+ ground was written by
+ Ocawesome101 for PineJam
+ 2023. Check out its source
+ code repository at
+B ocawesome101/pine-jam-2023
+ on GitHub.
+]]
+local y = 0
+for line in text:gmatch("[^\n]+") do
+  w.setCursorPos(1, 3+y)
+  w.setTextColor(colors.white)
+  if line:sub(1,1) == "B" then
+    line = line:sub(2)
+    w.setTextColor(colors.lightBlue)
+  end
+  w.write(line)
+  y=y+1
+end
+term.setCursorPos(1,12)

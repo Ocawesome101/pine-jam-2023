@@ -24,7 +24,7 @@
     -- similar to node mass
     -- damping should not be more than about 25% of stiffness
     -- or things get very weird very quickly
-    {stiffness = 2500, damping = 10},
+    {stiffness = 5500, damping = 10},
     {"fr1", "fl1"},
     {"fr1", "fr2"},
     {"fr1", "fl2"},

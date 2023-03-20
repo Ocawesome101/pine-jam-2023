@@ -466,6 +466,8 @@ function lib.newSimulation()
     end
   end
 
+  local speedDivider = 1000
+
   return {
     internal = {
       nodes = nodes, beams = beams, triangles = triangles, solids = solids,
@@ -478,12 +480,17 @@ function lib.newSimulation()
     tick = function(_, delta)
       -- CCPC Accelerated is SO MUCH FASTER
       local ITER = jit and 150 or 2
-      delta = delta / 1000 / ITER
+      delta = delta / speedDivider / ITER
       for _=1, ITER do tick(delta) end
     end,
     setGravity = function(_,v)
       gravity = v or -9.8
     end,
+    getGravity = function() return gravity end,
+    setSpeed = function(_,v)
+      speedDivider = math.max(1, v or 1) * 1000
+    end,
+    getSpeed = function() return speedDivider / 1000 end,
     loadLuaBeam = loadLuaBeam,
     loadLuaBeamAsPineObject = loadLuaBeamAsPineObject,
     updateEntities = updateEntities,
