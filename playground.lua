@@ -49,17 +49,17 @@ local function newChunk(d, i, j)
 end
 local arena = {ThreeDFrame:newObject(newChunk(30, 10, 10), -30, 0, -30)}
 
-local function addPhysicsObject(x, y, z)
-  objects[#objects+1]=assert(simulation:loadLuaBeamAsPineObject(ThreeDFrame, "cube.lbeam", x, y, z))
+local function addPhysicsObject(name, x, y, z)
+  objects[#objects+1]=assert(simulation:loadLuaBeamAsPineObject(ThreeDFrame, "structures/"..name, x, y, z))
 end
 
-addPhysicsObject(0, 10, 0)
+addPhysicsObject("cube.lbeam", 0, 10, 0)
 
 simulation:loadPineObject(arena[1], 0.2)
 
 --simulation:setGravity(-0.1)
 
-local paused, help = false, true
+local paused, help, sel, selOpts = false, true, false, nil
 
 -- handle all keypresses and store in a lookup table
 -- to check later if a key is being pressed
@@ -71,17 +71,22 @@ local function keyInput()
 
     if event == "key" then -- if a key is pressed, mark it as being pressed down
       keysDown[key] = true
+      if key == keys.enter and sel then
+        addPhysicsObject(selOpts[sel], camera.x, camera.y, camera.z)
+        sel = false
+      end
     elseif event == "key_up" then -- if a key is released, reset its value
       keysDown[key] = nil
     elseif event == "char" then
       if key == "p" then paused = not paused end
       if key == "q" then break end
-      if key == "n" then addPhysicsObject(camera.x, camera.y, camera.z) end
-      if key == "j" then simulation:setSpeed(simulation:getSpeed() + 1) end
-      if key == "l" then simulation:setSpeed(simulation:getSpeed() - 1) end
+      if key == "n" then sel = 1 end
       if key == "g" then simulation:setGravity(-simulation:getGravity()) end
+      if tonumber(key) then sel=math.max(1,math.min(#selOpts,tonumber(key))) end
       if key == "i" then simulation:setGravity(simulation:getGravity() + 1) end
       if key == "k" then simulation:setGravity(simulation:getGravity() - 1) end
+      if key == "j" then simulation:setSpeed(simulation:getSpeed() + 1) end
+      if key == "l" then simulation:setSpeed(simulation:getSpeed() - 1) end
       if key == "r" then simulation:setGravity() end
       if key == "z" then simulation:setGravity(0) end
       if key == "h" then help = not help end
@@ -200,9 +205,24 @@ local helpText = {
 local function drawOverlay(minimal)
   term.setBackgroundColor(colors.gray)
   term.setTextColor(colors.orange)
-  if minimal or not help then
+  if sel then
+    local options = selOpts or fs.list("structures")
+    selOpts = options
+    table.sort(options)
+    for i=1, #options do
+      if i == sel then
+        term.setBackgroundColor(colors.lightGray)
+      else
+        term.setBackgroundColor(colors.gray)
+      end
+      at(3, i+2).write(options[i])
+    end
+    term.setBackgroundColor(colors.gray)
+  end
+
+  if minimal or not help or sel then
     local _, h = term.getSize()
-    at(1,1).write("P = pause, N = new object")
+    at(1,1).write("P = pause, N = new object" .. (sel and ", 1-9 = select structure" or ""))
     at(1,h).write("speed = 1/"..simulation:getSpeed()..", gravity = "..simulation:getGravity())
     return
   end

@@ -1,0 +1,35 @@
+{
+  nodes = {
+    {mass = 15},
+    -- base
+    {0.5, 0, 0.5, "fr1"},
+    {-0.5, 0, 0.5, "fl1"},
+    {0.5, 0, -0.5, "rr1"},
+    {-0.5, 0, -0.5, "rl1"},
+
+    -- top
+    {0, 1.0, 0, "t1"}
+  },
+  beams = {
+    {stiffness = 5500, damping = 15},
+    {"fr1", "fl1"},
+    {"fr1", "rr1"},
+    {"fr1", "rl1"},
+    {"fr1", "t1"},
+    {"fl1", "rr1"},
+    {"fl1", "rl1"},
+    {"fl1", "t1"},
+    {"rr1", "rl1"},
+    {"rr1", "t1"},
+    {"rl1", "t1"},
+  },
+  triangles = {
+    {draw = true, collide = true, color = "brown", bounce = 0.5},
+    {"rl1", "rr1", "fr1"},
+    {"rl1", "fr1", "fl1"},
+    {"fl1", "fr1", "t1"},
+    {"rr1", "rl1", "t1"},
+    {"fr1", "rr1", "t1"},
+    {"rl1", "fl1", "t1"}
+  }
+}
