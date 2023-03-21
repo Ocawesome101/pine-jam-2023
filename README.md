@@ -14,6 +14,10 @@ Structures are defined in a file format I've chosen to call LuaBeam, which is re
 
 ### How do I use this?
 
+The included `obj2lbeam.lua` script will convert any Waveform OBJ file to an LBeam structure.  I recommend constructing structures in Blender and adding faces last.  **You must manually add internal support beams.  The script does NOT add them.  Faces must be triangular.  The script does NOT triangulate faces.**
+
+See the included `example.obj` for an example of how to construct a structure like this.  Note the beams/edges that are not part of any faces - they are there for structural support so the structure does not collapse.
+
 The entire physics engine is contained within `softbody.lua` and is not confined to ComputerCraft - though it contains some utility functions intended exclusively for Pine3D.
 
 Create a new simulation instance (manages everything nicely-ish for you) with `softbody.newSimulation()`.  A simulation instance has the following methods:
