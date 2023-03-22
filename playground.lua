@@ -53,11 +53,9 @@ local function addPhysicsObject(name, x, y, z)
   objects[#objects+1]=assert(simulation:loadLuaBeamAsPineObject(ThreeDFrame, "structures/"..name, x, y, z))
 end
 
-addPhysicsObject("cube.lbeam", 0, 10, 0)
+addPhysicsObject("cube.lbeam", math.random(-0.1,0.1), 10, math.random(-0.1,0.1))
 
 simulation:loadPineObject(arena[1], 0.2)
-
---simulation:setGravity(-0.1)
 
 local paused, help, sel, selOpts = false, true, false, nil
 
@@ -90,6 +88,8 @@ local function keyInput()
       if key == "r" then simulation:setGravity() end
       if key == "z" then simulation:setGravity(0) end
       if key == "h" then help = not help end
+      if key == "[" then simulation:setGranularity(simulation:getGranularity()-1) end
+      if key == "]" then simulation:setGranularity(simulation:getGranularity()+1) end
     end
   end
 end
@@ -150,11 +150,17 @@ end
 -- handle game logic
 local epoch = rawget(os, "epoch")
 local lastTick = epoch("utc")
+local lastDelta = 0
+local panic = false
 local function handleGameLogic()
-  local delta = epoch("utc") - lastTick
-  lastTick = delta + lastTick
+  lastDelta = epoch("utc") - lastTick
+  lastTick = lastDelta + lastTick
   if not paused then
-    simulation:tick(delta)
+    if lastDelta > 2500 then
+      panic = true
+      return
+    end
+    simulation:tick(lastDelta)
     simulation:updateEntities()
   end
 end
@@ -171,6 +177,7 @@ local function gameLoop()
 
     -- run all functions that need to be run
     handleGameLogic()
+    if panic then break end
     handleCameraMovement(dt)
 
     -- use a fake event to yield the coroutine
@@ -199,6 +206,7 @@ local helpText = {
   "Z = zero-gravity",
   "J/L - decrease/increase simulation speed",
   "I/K - increase/decrease gravity",
+  "[/] - decrease/increase granularity",
   "H - toggle showing this help screen",
 }
 
@@ -223,7 +231,7 @@ local function drawOverlay(minimal)
   if minimal or not help or sel then
     local _, h = term.getSize()
     at(1,1).write("P = pause, N = new object" .. (sel and ", 1-9 = select structure" or ""))
-    at(1,h).write("speed = 1/"..simulation:getSpeed()..", gravity = "..simulation:getGravity())
+    at(1,h).write("spd = 1/"..simulation:getSpeed()..", grv = "..simulation:getGravity()..", gran = " ..simulation:getGranularity() .. ", dt = "..lastDelta)
     return
   end
   for i=1, #helpText do
@@ -257,6 +265,11 @@ end
 parallel.waitForAny(keyInput, gameLoop, rendering)
 
 term.clear()
+if panic then
+  term.setCursorPos(1,1)
+  printError("simulation tick took >2500ms")
+  return
+end
 local wb = window.create(term.current(), 1, 1, 31, 11)
 local w = window.create(wb, 1, 1, 30, 10)
 wb.setBackgroundColor(colors.gray)

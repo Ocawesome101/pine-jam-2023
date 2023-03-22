@@ -1,9 +1,10 @@
 -- Soft-body physics sandbox
 -- supporting library
 
+local sqrt = math.sqrt
 -- vector functions
 local function length(x, y, z)
-  return math.sqrt(x*x + y*y + z*z)
+  return sqrt(x*x + y*y + z*z)
 end
 
 local function distance(xa, ya, za, xb, yb, zb)
@@ -26,9 +27,10 @@ local function cross(ax, ay, az, bx, by, bz)
         ax * by - ay * bx
 end
 
+local abs = math.abs
 local function sign(n)
   if n == 0 then return 0 end
-  return n/math.abs(n)
+  return n/abs(n)
 end
 
 -- stv = signed tetra volume, used in collisions
@@ -134,6 +136,7 @@ local function loadLuaBeam(instance, path, x, y, z, pine)
 
   local nodeMass, beamStiff, beamDamp = 0, 0, 0
   local named, nodes = {}, {}
+
   for i=1, #data.nodes do
     local def = data.nodes[i]
     if not def[1] then
@@ -155,7 +158,6 @@ local function loadLuaBeam(instance, path, x, y, z, pine)
     if not def[1] then
       beamStiff, beamDamp = def.stiffness or beamStiff, def.damping or beamDamp
     else
-      print(def[1],def[2])
       instance:addBeam(named[def[1]], named[def[2]],
         def.stiffness or beamStiff, def.damping or beamDamp)
     end
@@ -425,9 +427,6 @@ function lib.newSimulation()
       vx = vx + (fx * delta) / mass
       vy = vy + (fy * delta) / mass
       vz = vz + (fz * delta) / mass
-      --vx = math.max(-10, math.min(vx, 10))
-      --vy = math.max(-10, math.min(vy, 10))
-      --vz = math.max(-10, math.min(vz, 10))
 
       if not node[11] then -- do not move node if locked in place
         -- new node position
@@ -467,19 +466,23 @@ function lib.newSimulation()
   end
 
   local speedDivider = 1000
+  local ITER = 1
 
   return {
     internal = {
       nodes = nodes, beams = beams, triangles = triangles, solids = solids,
-      entities = entities
+      entities = entities, ci = checkIntersection
     },
     addNode = nnode,
     addBeam = nbeam,
     addTriangle = ntri,
     addSolid = nsolid,
+    setGranularity = function(_,v)
+      ITER = math.max(1,tonumber(v) or ITER)
+    end,
+    getGranularity = function()return ITER end,
     tick = function(_, delta)
       -- CCPC Accelerated is SO MUCH FASTER
-      local ITER = jit and 150 or 2
       delta = delta / speedDivider / ITER
       for _=1, ITER do tick(delta) end
     end,
